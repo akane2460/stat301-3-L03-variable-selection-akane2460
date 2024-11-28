@@ -1,0 +1,234 @@
+---
+title: "L03 Variable Selection"
+subtitle: "Data Science 3 with R (STAT 301-3)"
+author: "Allison Kane"
+pagetitle: "L03 Allison Kane"
+date: today
+
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    embed-resources: true
+    code-fold: false
+    link-external-newwindow: true
+
+execute:
+  warning: false
+  
+from: markdown+emoji
+reference-location: margin
+citation-location: margin
+---
+
+::: {.callout-tip icon=false}
+
+## Github Repo Link
+
+[Allison Repo Link](https://github.com/stat301-3-2024-spring/L03-variable-selection-akane2460)
+
+:::
+
+## Exercise
+
+We will be re-visiting the rideshare dataset used in L02 Initial Setup. Find the `rideshare` dataset^[Kaggle Uber & Lyft Dataset ([see website](https://www.kaggle.com/datasets/brllrb/uber-and-lyft-dataset-boston-ma))] in the `\data` directory. Take a moment to read the variable definitions in `rideshare_codebook.txt`.
+
+::: {.callout-note icon="false"}
+## Prediction goal
+
+The objective is to predict the `price` of an Uber & Lyft rideshare.
+
+:::
+
+### Getting Started
+
+The initial setup has been completed for you using the following settings:
+
+- read in data, converted character variables to factors, removed missingness issues with the outcome variable `price`.
+- transformed the target variable `price` with a log10 transformation
+- downsampled the dataset to 0.5% of the original data stratified by price for computation purposes
+- implemented an 80-20 training-test split using stratified sampling (stratified by target variable with 4 strata)
+- resamples were constructed by taking the training dataset and applying repeated V-fold cross-validation (5 folds, 3 repeat) with stratification on the target variable with 4 strata.
+
+1. Run `1_initial_setup.R`. 
+2. After running the script the `data-splitting` directory should contain `rideshare_training.rda`, `rideshare_testing.rda`, and `rideshare_folds.rda`. 
+3. Check to see if any of these should be added to the `.gitignore` file.
+
+### Task 1
+
+Use lasso regression to perform variable selection. 
+
+- use a v-fold cross validation^[Different from the folds created in the initial setup and is done to guard against overfitting.]: 5 folds, 1 repeat, & stratify on on target variable
+- use the `glmnet` engine
+- tune the `penalty` 
+- use a regular grid of 5
+
+After finalizing and fitting the optimal lasso model, what variables were selected to include in your model?
+
+::: {.callout-tip icon="false"}
+## Solution
+
+The list of variables selected is: "hour", "distance", "longitude"                     "humidity", "temperature_high_time", "temperature_low_time", "wind_bearing"                  "temperature_min", "temperature_min_time", "apparent_temperature_min_time", 
+"source", "destination", "product_id", "name", "short_summary", "long_summary", 
+and "icon"  
+
+:::
+
+### Task 2
+
+Use random forest to perform variable selection. 
+
+- use a v-fold cross validation^[Different from the folds created in the initial setup and is done to guard against overfitting.]: 5 folds, 1 repeat, & stratify on on target variable
+- `ranger` engine
+- in the engine set `importance = "impurity"` --- this is what allows us to extract the variable importance
+- tune `mtry` and `min_n`
+- set `trees = 1000`
+- use a regular grid with `levels = 4`
+
+After finalizing and fitting the optimal random forest model, select the top 20 important variables using `vip::vi()`. What variables were selected to include in your model?
+
+::: {.callout-tip icon="false"}
+## Solution
+
+The list of variables selected is: "distance", cloud_cover", "source",    "product_id", "name", "short_summary" and "icon"  
+
+:::
+
+### Task 3
+
+Now that variable selection/screening has been completed we can proceed to feature engineering (recipe building).
+
+Create 2 recipes:
+
+1. The first should only use the variables selected by lasso regression in task 1
+2. The second should only use the variables selected by the random forest variable importance in task 2.
+
+::: {.callout-note icon="false"}
+
+Both recipes should contain the standard minimal steps to run a recipe such as dummy encoding, handling zero variance, normalization (if appropriate).
+
+:::
+
+::: {.callout-tip icon="false"}
+## Solution
+
+The lasso recipe:
+```{r}
+#| label: task 3 lasso
+#| eval: false
+
+# recipe with lasso variable selection
+recipe_lasso <- recipe(price_log10 ~ ., data = rideshare_training) |> 
+  step_select(any_of( !!var_keep), price_log10) |> 
+  update_role(price, new_role = "original_scale") |> 
+  step_dummy(all_nominal_predictors()) |> 
+  step_nzv(all_predictors()) |> 
+  step_normalize(all_predictors())
+
+# check recipe
+recipe_lasso |> 
+  prep() |> 
+  bake(new_data = NULL) |> 
+  glimpse()
+
+# save lasso recipe
+load(here("recipes/recipe_lasso_rec1.rda"))
+
+recipe_rf <- recipe(price_log10 ~ ., rideshare_training) |> 
+  step_select(all_of( !!var_keep_rf), price_log10) |> 
+  step_zv(all_predictors()) |> 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |> 
+  step_normalize(all_numeric_predictors())
+
+# check recipe
+recipe_rf |> 
+  prep() |> 
+  bake(new_data = NULL) |> 
+  glimpse()
+
+save(
+  recipe_rf,
+  file = here("recipes/recipe_rf_rec1.rda")
+)
+
+```
+
+The random forest recipe:
+
+```{r}
+#| label: task 3 rf
+#| eval: false
+
+recipe_rf <- recipe(price_log10 ~ ., rideshare_training) |> 
+  step_select(all_of( !!var_keep_rf), price_log10) |> 
+  step_zv(all_predictors()) |> 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) |> 
+  step_normalize(all_numeric_predictors())
+
+# check recipe
+recipe_rf |> 
+  prep() |> 
+  bake(new_data = NULL) |> 
+  glimpse()
+
+load(
+  recipe_rf,
+  file = here("recipes/recipe_rf_rec1.rda")
+)
+
+```
+:::
+
+### Task 4
+
+Fit each of the recipes to the following models and record computation time:
+
+1. Support vector machine (polynomial): tune `cost`, `degree`, and `scale_factor` (default values are sufficient, free to change if you want)
+
+2.  Support vector machine (radial basis function): tune `cost` and `rbf_sigma` (default values a sufficient, free to change if you want)
+
+
+Some general notes:
+
+- A basic layout is suggested/provided in `4_tune_template.R`. 
+- We also want to collect how long it takes the tuning process for each model type. We can use the `tictoc` package --- code is provided in `4_tune_template.R`.
+
+
+### Task 5
+
+Provide a nicely formatted table of model results. The table should include the model name, recipe name, best performance achieved, standard error of metric, and run time.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+|model            |recipe |      mean|   std_err|  runtime|
+|:----------------|:------|---------:|---------:|--------:|
+|svm_poly_lasso   |lasso  | 0.0686151| 0.0011057| 1322.305|
+|svm_poly_rf      |rf     | 0.0680830| 0.0010929|  760.084|
+|svm_radial_lasso |lasso  | 0.0675649| 0.0011411|  803.768|
+|svm_radial_rf    |rf     | 0.0669690| 0.0011615|  749.595|
+
+:::
+
+### Task 6
+
+Evaluate the best performing model on the testing data. This should include the interpretation of at least 2 metrics and a plot of observed vs predicted.
+
+::: {.callout-tip icon="false"}
+## Solution
+
+The random forest radial model is the best performing. Its performance metrics are below:
+
+|.metric |.estimator | .estimate|
+|:-------|:----------|---------:|
+|rmse    |standard   | 0.0673906|
+|rsq     |standard   | 0.9280035|
+
+The RMSE .0674 value indicates that the final model's predictions on average deviated by .0674 units. The $R^2$ value indicates that approximately 92.8% of the variance in the target variable is explained by model. This indicates that the model's performance is good.
+
+![Predicted Uber Prices (log 10)](results/original_scale_plot.png)
+
+This plot indicates that most predictions of rideshare price are fairly reliable. Most predicted prices (log 10) nearly match the true value of the rideshare price (log 10).
+
+:::

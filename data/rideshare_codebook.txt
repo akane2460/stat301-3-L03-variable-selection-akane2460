@@ -1,0 +1,54 @@
+id - Unique ID for each rideshare
+price - price of the ride
+hour - hour of the day
+day - day of the week
+month - month in a year
+datetime - date value
+timezone - timezone
+source - initial source of the ride
+destination - destination of the ride
+cab_type - the type of cab
+product_id - product id
+name - name
+distance - total distance of the requested ride
+surge_multiplier - 
+latitude - 
+longitude - 
+temperature - 
+apparentTemperature - 
+short_summary -
+long_summary - 
+precipIntensity - 
+precipProbability -
+humidity - 
+windSpeed - 
+windGust -
+windGustTime -
+visibility -
+temperatureHigh -
+temperatureHighTime -
+apparentTemperatureHigh -
+apparentTemperatureHighTime -
+apparentTemperatureLow -
+apparentTemperatureLowTime -
+icon - 
+dewPoint -
+pressure -
+windBearing -
+cloudCover -
+uvIndex - 
+visibility.1 -
+ozone -
+sunriseTime -
+sunsetTime -
+moonPhase -
+precipIntensityMax -
+uvIndexTime -
+temperatureMin -
+temperatureMinTime -
+temperatureMax -
+temperatureMaxTime -
+apparentTemperatureMin -
+apparentTemperatureMinTime -
+apparentTemperatureMax -
+apparentTemperatureMaxTime -
